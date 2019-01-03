@@ -17,23 +17,19 @@ import me.firesun.wechat.enhancement.plugin.HideModule;
 import me.firesun.wechat.enhancement.plugin.IPlugin;
 import me.firesun.wechat.enhancement.plugin.Limits;
 import me.firesun.wechat.enhancement.plugin.LuckMoney;
+import me.firesun.wechat.enhancement.plugin.SyncGroupMessage;
 import me.firesun.wechat.enhancement.util.HookParams;
 import me.firesun.wechat.enhancement.util.SearchClasses;
 
 import static de.robv.android.xposed.XposedBridge.log;
 
+import java.util.List;
+import java.util.ArrayList;
+
 
 public class Main implements IXposedHookLoadPackage {
 
-    private static IPlugin[] plugins={
-            new ADBlock(),
-            new AntiRevoke(),
-            new AntiSnsDelete(),
-            new AutoLogin(),
-            new HideModule(),
-            new LuckMoney(),
-            new Limits(),
-    };
+    private static List<IPlugin> plugins;
 
     @Override
     public void handleLoadPackage(final LoadPackageParam lpparam) {
@@ -78,6 +74,17 @@ public class Main implements IXposedHookLoadPackage {
 
 
     private void loadPlugins(LoadPackageParam lpparam) {
+        plugins = new ArrayList<IPlugin>();
+        plugins.add(new ADBlock());
+        plugins.add(new AntiRevoke());
+        plugins.add(new AntiSnsDelete());
+        plugins.add(new AutoLogin());
+        plugins.add(new HideModule());
+        plugins.add(new LuckMoney());
+        plugins.add(new Limits());
+        SyncGroupMessage syncPlugin = new SyncGroupMessage();
+        syncPlugin.Init();
+        plugins.add(syncPlugin);
         for (IPlugin plugin:plugins) {
             try {
                 plugin.hook(lpparam);

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import me.firesun.wechat.enhancement.PreferencesUtils;
@@ -124,10 +125,12 @@ public class LuckMoney implements IPlugin {
             }
         });
 
-        XposedHelpers.findAndHookMethod(HookParams.getInstance().ChatroomInfoUIClassName, lpparam.classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
+        //XposedHelpers.findAndHookMethod(HookParams.getInstance().ChatroomInfoUIClassName, lpparam.classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
+        XposedHelpers.findAndHookMethod("com.tencent.mm.chatroom.ui.ChatroomInfoUI", lpparam.classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
+                    XposedBridge.log("xxxxxxxxxxx ChatroomInfoUI");
                     if (PreferencesUtils.showWechatId()) {
                         Activity activity = (Activity) param.thisObject;
                         String wechatId = activity.getIntent().getStringExtra("RoomInfo_Id");
