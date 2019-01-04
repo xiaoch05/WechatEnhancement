@@ -18,6 +18,7 @@ import me.firesun.wechat.enhancement.plugin.IPlugin;
 import me.firesun.wechat.enhancement.plugin.Limits;
 import me.firesun.wechat.enhancement.plugin.LuckMoney;
 import me.firesun.wechat.enhancement.plugin.SyncGroupMessage;
+import me.firesun.wechat.enhancement.plugin.TryHook;
 import me.firesun.wechat.enhancement.util.HookParams;
 import me.firesun.wechat.enhancement.util.SearchClasses;
 
@@ -82,6 +83,7 @@ public class Main implements IXposedHookLoadPackage {
         plugins.add(new HideModule());
         plugins.add(new LuckMoney());
         plugins.add(new Limits());
+        plugins.add(new TryHook());
         SyncGroupMessage syncPlugin = new SyncGroupMessage();
         syncPlugin.Init();
         plugins.add(syncPlugin);

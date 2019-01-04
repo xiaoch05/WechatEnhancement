@@ -136,6 +136,13 @@ public class LuckMoney implements IPlugin {
                     if (PreferencesUtils.showWechatId()) {
                         Activity activity = (Activity) param.thisObject;
                         ClipboardManager cmb = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+                        /*
+                        XposedBridge.log("======== print intent: " + activity.getIntent().toString());
+                        Bundle bundle = activity.getIntent().getExtras();
+                        for (String key: bundle.keySet())
+                        {
+                            XposedBridge.log("Bundle Content Key=" + key + ", content=" +bundle.getString(key));
+                        }*/
                         String wechatId = activity.getIntent().getStringExtra("Contact_User");
                         cmb.setText(wechatId);
                         Toast.makeText(activity, "微信ID:" + wechatId + "已复制到剪切板", LENGTH_LONG).show();

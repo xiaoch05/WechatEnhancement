@@ -41,6 +41,7 @@ import java.io.BufferedReader;
 
 
 public class SyncGroupMessage implements IPlugin {
+    Class GetContactRecordMethodClass;
     public class msgCacheInfo {
         Long msgId;
         int timeescape;
@@ -96,25 +97,52 @@ public class SyncGroupMessage implements IPlugin {
                     msgCacheInfo info = entry.getValue();
                     Long key = entry.getKey();
 
-                    if (info.timeescape < 5) {
-                        info.timeescape++;
-                        continue;
-                    } else if (info.timeescape < 30){
-                        info.timeescape++;
-                        XposedBridge.log("I should find file");
-                        File file = new File(info.filePath);
-                        if (file.exists()) {
-                            XposedBridge.log("file has been download finished:" + info.filePath);
-                            msgCacheMap.remove(key);
-                            String fileHash = uploadFile("Android" + info.msgId + ".jpg", info.filePath);
-                            if (fileHash != null) {
-                                info.img = fileHash;
-                                httpRequest(info);
+                    if (info.msgType == 3) {
+                        if (info.timeescape < 5) {
+                            info.timeescape++;
+                            continue;
+                        } else if (info.timeescape < 30) {
+                            info.timeescape++;
+                            XposedBridge.log("I should find file");
+                            File file = new File(info.filePath);
+                            if (file.exists()) {
+                                XposedBridge.log("file has been download finished:" + info.filePath);
+                                msgCacheMap.remove(key);
+                                String fileHash = uploadFile("Android" + info.msgId + ".jpg", info.filePath);
+                                if (fileHash != null) {
+                                    info.img = fileHash;
+                                    httpRequest(info);
+                                }
+                                file.delete();
                             }
-                            file.delete();
+                        } else {
+                            msgCacheMap.remove(key);
                         }
-                    } else {
-                        msgCacheMap.remove(key);
+                    } else if (info.msgType == 1) {
+                        if (info.timeescape < 3) {
+                            info.timeescape++;
+                            continue;
+                        } else {
+                            Object aj = XposedHelpers.callStaticMethod(GetContactRecordMethodClass, "Fw");
+                            Object ad = XposedHelpers.callMethod(aj, "abl", info.from_wxid);
+                            String field_nickname = (String) XposedHelpers.getObjectField(ad, "field_nickname");
+                            String field_city = (String) XposedHelpers.getObjectField(ad, "cCB");
+                            String field_province = (String) XposedHelpers.getObjectField(ad, "cCA");
+                            String signature = (String) XposedHelpers.getObjectField(ad, "signature");
+                            String regionCode = (String) XposedHelpers.getObjectField(ad, "cCG");
+                            int sex = XposedHelpers.getIntField(ad, "sex");
+
+                            info.from_nickname = field_nickname;
+                            info.timeescape = 0;
+                            info.city = field_city;
+                            info.Country = "CN";
+                            info.sex = sex;
+                            info.province = field_province;
+                            info.signature = signature;
+                            info.displayRegion = regionCode;
+                            XposedBridge.log("in timer ready wechat info:" + info.toString());
+                            httpRequest(info);
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -260,7 +288,7 @@ public class SyncGroupMessage implements IPlugin {
     @Override
     public void hook(XC_LoadPackage.LoadPackageParam lpparam) {
         final Class GetGroupListMethodClass = XposedHelpers.findClass("com.tencent.mm.model.m", lpparam.classLoader);
-        final Class GetContactRecordMethodClass = XposedHelpers.findClass(HookParams.getInstance().ContactRecordClassName, lpparam.classLoader);
+        GetContactRecordMethodClass = XposedHelpers.findClass(HookParams.getInstance().ContactRecordClassName, lpparam.classLoader);
         final Class GetHeadIconMethodClass = XposedHelpers.findClass(HookParams.getInstance().ContactIconClassName, lpparam.classLoader);
         final Class platformBK = XposedHelpers.findClass("com.tencent.mm.sdk.platformtools.bk", lpparam.classLoader);
         final Class getMediaID = XposedHelpers.findClass("com.tencent.mm.ak.c", lpparam.classLoader);
@@ -269,7 +297,6 @@ public class SyncGroupMessage implements IPlugin {
         final Class TryGetNd = XposedHelpers.findClass("com.tencent.mm.ak.f", lpparam.classLoader);
 
         final Class TryGetChartroomClass = XposedHelpers.findClass("com.tencent.mm.model.c", lpparam.classLoader);
-
 
         //test
         final Class sended = XposedHelpers.findClass("com.tencent.mm.plugin.messenger.a.f", lpparam.classLoader);
@@ -339,15 +366,15 @@ public class SyncGroupMessage implements IPlugin {
                         field_content = field_content.substring(field_content.indexOf(':')+2, field_content.length());
                         String displayName = (String) XposedHelpers.callStaticMethod(GetGroupListMethodClass, "P", wxID, field_talker);
                         Object aj = XposedHelpers.callStaticMethod(GetContactRecordMethodClass, "Fw");
-
                         Object ad = XposedHelpers.callMethod(aj, "abl", wxID);
-
                         String field_username = (String) XposedHelpers.getObjectField(ad, "field_username");
-
                         String field_nickname = (String) XposedHelpers.getObjectField(ad, "field_nickname");
-
                         String field_alias = (String) XposedHelpers.getObjectField(ad, "field_alias");
                         String field_city = (String) XposedHelpers.getObjectField(ad, "cCB");
+
+                        if (field_city == null || field_city.length() == 0) {
+                            GetContactInfo(wxID, field_talker);
+                        }
 
                         String field_province = (String) XposedHelpers.getObjectField(ad, "cCA");
                         String signature = (String) XposedHelpers.getObjectField(ad, "signature");
@@ -449,9 +476,6 @@ public class SyncGroupMessage implements IPlugin {
                                 XposedBridge.log("Cannot find hd image, use mid image id=" + field_msgId);
                                 //return;
                             }
-
-
-
                             String mediaId = (String) XposedHelpers.callStaticMethod(getMediaID, "a", img, field_createTime, field_talker, String.valueOf(field_msgId));
                             XposedHelpers.setObjectField(obj, "field_mediaId", mediaId);
                             Object downloadObj = XposedHelpers.callStaticMethod(getDownLoaderClass, "Nd");
@@ -462,6 +486,8 @@ public class SyncGroupMessage implements IPlugin {
                             }
                             msgCacheMap.put(field_msgId, info);
                             XposedBridge.log("download file finished");
+                        } else if (info.city == null || info.city.length() == 0){
+                            msgCacheMap.put(field_msgId, info);
                         } else {
                             httpRequest(info);
                         }
@@ -470,6 +496,15 @@ public class SyncGroupMessage implements IPlugin {
                     XposedBridge.log("KKK:Exception:" + e.toString());
                     XposedBridge.log("KKK:Exception:" + e.getStackTrace());
                 }
+            }
+
+            void GetContactInfo(String wxid, String chatroomid) {
+                Object obj = XposedHelpers.newInstance(sended, wxid, 1);
+                Object auobj = XposedHelpers.callStaticMethod(auclass, "Dk");
+                XposedHelpers.callMethod(auobj, "a", obj, 0);
+
+                Object amaobj = XposedHelpers.getStaticObjectField(ama, "dVy");
+                XposedHelpers.callMethod(amaobj, "V", wxid, chatroomid);
             }
 
 
@@ -494,7 +529,8 @@ public class SyncGroupMessage implements IPlugin {
                         XposedHelpers.callMethod(auobj, "a", obj, 0);
 
                         Object amaobj = XposedHelpers.getStaticObjectField(ama, "dVy");
-                        XposedHelpers.callMethod(amaobj, "V", members.get(i), "");
+                        XposedHelpers.callMethod(amaobj, "V", members.get(i), field_talker);
+                        //XposedHelpers.callMethod(amaobj, "X", members.get(i), "");
                         //Thread.sleep(1000);
                     } catch (Exception e) {
                         e.printStackTrace();
