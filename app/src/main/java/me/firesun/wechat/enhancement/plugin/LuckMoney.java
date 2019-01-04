@@ -41,12 +41,32 @@ public class LuckMoney implements IPlugin {
 
     @Override
     public void hook(final XC_LoadPackage.LoadPackageParam lpparam) {
+        /*
         XposedHelpers.findAndHookMethod(HookParams.getInstance().SQLiteDatabaseClassName, lpparam.classLoader, HookParams.getInstance().SQLiteDatabaseInsertMethod, String.class, String.class, ContentValues.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
                     ContentValues contentValues = (ContentValues) param.args[2];
                     String tableName = (String) param.args[0];
+
+                    XposedBridge.log("---------------- insert table name :" + tableName + "--------------------");
+
+                    XposedBridge.log("======= insert table content:" + contentValues.toString());
+
+                    if (tableName.equals("contact_ext")) {
+                        Throwable ex = new Throwable();
+                        StackTraceElement[] stackElements = ex.getStackTrace();
+                        if (stackElements != null) {
+                            XposedBridge.log("-----------------print stack------------------");
+                            XposedBridge.log("args:" + param.args[0]);
+                            for (int i = 0; i < stackElements.length; i++) {
+                                XposedBridge.log(stackElements[i].getClassName() + "/t");
+                                XposedBridge.log(stackElements[i].getFileName() + "/t");
+                                XposedBridge.log(stackElements[i].getLineNumber() + "/t");
+                                XposedBridge.log(stackElements[i].getMethodName());
+                            }
+                        }
+                    }
                     if (TextUtils.isEmpty(tableName) || !tableName.equals("message")) {
                         return;
                     }
@@ -62,7 +82,7 @@ public class LuckMoney implements IPlugin {
                 } catch (Error | Exception e) {
                 }
             }
-        });
+        });*/
 
         XposedHelpers.findAndHookMethod(HookParams.getInstance().ReceiveLuckyMoneyRequestClassName, lpparam.classLoader, HookParams.getInstance().ReceiveLuckyMoneyRequestMethod, int.class, String.class, JSONObject.class, new XC_MethodHook() {
             @Override

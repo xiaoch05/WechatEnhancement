@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -20,6 +21,8 @@ import me.firesun.wechat.enhancement.PreferencesUtils;
 import me.firesun.wechat.enhancement.util.HookParams;
 
 import android.os.Environment;
+import android.text.TextUtils;
+
 import org.xml.sax.XMLReader;
 
 import java.util.Timer;
@@ -30,6 +33,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
+import java.io.FileInputStream;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 
@@ -56,6 +60,11 @@ public class SyncGroupMessage implements IPlugin {
         int msgType;
         String text;
         long sendTime;
+        String img;
+
+        String filePath;
+
+        int hdFlag;
 
         @Override
         public String toString() {
@@ -69,35 +78,43 @@ public class SyncGroupMessage implements IPlugin {
                     + "<city=" + city + ">"
                     + "<signature=" + signature + ">"
                     + "<msgType=" + msgType + ">"
-                    + "<text=" + text + ">";
+                    + "<text=" + text + ">"
+                    + "<city=" + city + ">"
+                    + "<County=" + Country + ">"
+                    + "<groupNickName=" + groupNickName + ">";
         }
     }
-    private static List<msgCacheInfo> msgCacheMap = new ArrayList<msgCacheInfo>();
+    private static Map<Long, msgCacheInfo> msgCacheMap = new HashMap<Long, msgCacheInfo>();
     Timer timer = new Timer(true);
     String rootPath = Environment.getExternalStorageDirectory().getAbsolutePath();
     TimerTask task = new TimerTask() {
         public void run() {
             //XposedBridge.log("This is timer");
             try {
-                for (int idx = 0; idx < msgCacheMap.size(); idx++) {
-                    msgCacheInfo info = msgCacheMap.get(idx);
+                Set<Map.Entry<Long, msgCacheInfo>> entries = msgCacheMap.entrySet();
+                for(Map.Entry<Long, msgCacheInfo> entry : entries){
+                    msgCacheInfo info = entry.getValue();
+                    Long key = entry.getKey();
+
                     if (info.timeescape < 5) {
                         info.timeescape++;
                         continue;
                     } else if (info.timeescape < 30){
                         info.timeescape++;
                         XposedBridge.log("I should find file");
-                        String imgSavePath = rootPath + "/tencent/MicroMsg/WeiXin/File" + info.msgId + ".jpg";
-                        File file = new File(imgSavePath);
+                        File file = new File(info.filePath);
                         if (file.exists()) {
-                            XposedBridge.log("file has been download finished:" + imgSavePath);
-                            msgCacheMap.remove(idx);
-                            idx--;
-                            httpRequest(info);
+                            XposedBridge.log("file has been download finished:" + info.filePath);
+                            msgCacheMap.remove(key);
+                            String fileHash = uploadFile("Android" + info.msgId + ".jpg", info.filePath);
+                            if (fileHash != null) {
+                                info.img = fileHash;
+                                httpRequest(info);
+                            }
+                            file.delete();
                         }
                     } else {
-                        msgCacheMap.remove(idx);
-                        idx--; // 先break出来防止异常
+                        msgCacheMap.remove(key);
                     }
                 }
             } catch (Exception e) {
@@ -112,7 +129,7 @@ public class SyncGroupMessage implements IPlugin {
 
     void httpRequest(msgCacheInfo info) {
         try {
-            URL url = new URL("http://192.168.1.158:8080/wechat/msg/api/v1/hello"); //in the real code, there is an ip and a port
+            URL url = new URL("http://192.168.1.90:8080/wechat/msg/api/v1/send"); //in the real code, there is an ip and a port
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
@@ -125,24 +142,24 @@ public class SyncGroupMessage implements IPlugin {
             JSONObject data = new JSONObject();
             JSONObject group = new JSONObject();
             group.put("id", info.groupId);
-            group.put("nickname", info.groupNickName);
+            group.put("nickname", info.groupNickName != null ? URLEncoder.encode(info.groupNickName, "UTF-8") : "");
             JSONObject member = new JSONObject();
             member.put("wxid", info.from_wxid);
-            member.put("nickname", URLEncoder.encode(info.from_nickname, "UTF-8"));
-            member.put("groupAliasName", info.from_aliname);
+            member.put("nickname", info.from_nickname != null ? URLEncoder.encode(info.from_nickname, "UTF-8") : "");
+            member.put("groupAliasName", info.from_aliname != null ? URLEncoder.encode(info.from_aliname, "UTF-8") : "");
             member.put("avatar", info.avatar);
             member.put("hdAvatar", info.hdAvatar);
             member.put("sex", info.sex);
-            member.put("province", info.province);
-            member.put("city", info.city);
-            member.put("country", info.Country);
-            member.put("signature", info.signature);
+            member.put("province", info.province != null ? URLEncoder.encode(info.province, "UTF-8") : "");
+            member.put("city", info.city != null ? URLEncoder.encode(info.city, "UTF-8") : "");
+            member.put("country", info.Country != null ? URLEncoder.encode(info.Country, "UTF-8") : "");
+            member.put("signature", info.signature != null ? URLEncoder.encode(info.signature, "UTF-8") : "");
             member.put("displayRegion", info.displayRegion);
             JSONObject msg = new JSONObject();
             msg.put("id", info.msgId);
             msg.put("type", info.msgType);
-            msg.put("img", "0xccc");
-            msg.put("text", info.text);
+            msg.put("img", info.img);
+            msg.put("text", info.text !=null ? URLEncoder.encode(info.text, "UTF-8") : "");
             msg.put("sendTime", info.sendTime);
             data.put("group", group);
             data.put("member", member);
@@ -174,6 +191,72 @@ public class SyncGroupMessage implements IPlugin {
         }
     }
 
+    String uploadFile(String newName, String fileName) {
+        String end = "\r\n";
+        String twoHyphens = "--";
+        String boundary = "----";
+        String uploadFile = fileName;
+        String actionUrl = "http://192.168.1.90:8080/wechat/msg/api/v1/upload";
+        try {
+            URL url = new URL(actionUrl);
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            /* 允许Input、Output，不使用Cache */
+            con.setDoInput(true);
+            con.setDoOutput(true);
+            con.setUseCaches(false);
+            /* 设置传送的method=POST */
+            con.setRequestMethod("POST");
+            /* setRequestProperty */
+            con.setRequestProperty("Connection", "Keep-Alive");
+            con.setRequestProperty("Charset", "UTF-8");
+            con.setRequestProperty("Content-Type",
+                    "multipart/form-data;boundary=" + boundary);
+            /* 设置DataOutputStream */
+            DataOutputStream ds = new DataOutputStream(con.getOutputStream());
+            ds.writeBytes(twoHyphens + boundary + end);
+            ds.writeBytes("Content-Disposition: form-data; "
+                    + "name=\"file\";filename=\"" + newName + "\"" + end);
+            ds.writeBytes(end);
+            /* 取得文件的FileInputStream */
+            FileInputStream fStream = new FileInputStream(uploadFile);
+            /* 设置每次写入1024bytes */
+            int bufferSize = 1024;
+            byte[] buffer = new byte[bufferSize];
+            int length = -1;
+            /* 从文件读取数据至缓冲区 */
+            while ((length = fStream.read(buffer)) != -1) {
+                /* 将资料写入DataOutputStream中 */
+                ds.write(buffer, 0, length);
+            }
+            ds.writeBytes(end);
+            ds.writeBytes(twoHyphens + boundary + twoHyphens + end);
+            /* close streams */
+            fStream.close();
+            ds.flush();
+            /* 取得Response内容 */
+            if (con.getResponseCode() == HttpURLConnection.HTTP_OK){
+                StringBuilder stringBuilder = new StringBuilder();
+                InputStreamReader streamReader = new InputStreamReader(con.getInputStream());
+                BufferedReader bufferedReader = new BufferedReader(streamReader);
+                String response = null;
+                while ((response = bufferedReader.readLine()) != null) {
+                    stringBuilder.append(response + "\n");
+                }
+                bufferedReader.close();
+                XposedBridge.log("Upload file get response:" + stringBuilder.toString());
+                JSONObject msg = new JSONObject(stringBuilder.toString());
+                ds.close();
+                return (String)msg.get("data");
+            } else {
+                XposedBridge.log("Upload file Http Error:" + con.getResponseMessage());
+            }
+            ds.close();
+        } catch (Exception e) {
+            XposedBridge.log("UploadFile exception:" + e.toString());
+        }
+        return null;
+    }
+
     @Override
     public void hook(XC_LoadPackage.LoadPackageParam lpparam) {
         final Class GetGroupListMethodClass = XposedHelpers.findClass("com.tencent.mm.model.m", lpparam.classLoader);
@@ -185,6 +268,15 @@ public class SyncGroupMessage implements IPlugin {
 
         final Class TryGetNd = XposedHelpers.findClass("com.tencent.mm.ak.f", lpparam.classLoader);
 
+        final Class TryGetChartroomClass = XposedHelpers.findClass("com.tencent.mm.model.c", lpparam.classLoader);
+
+
+        //test
+        final Class sended = XposedHelpers.findClass("com.tencent.mm.plugin.messenger.a.f", lpparam.classLoader);
+        final Class auclass = XposedHelpers.findClass("com.tencent.mm.model.au", lpparam.classLoader);
+        final Class ama = XposedHelpers.findClass("com.tencent.mm.model.am.a", lpparam.classLoader);
+        //test
+
         final Class FF = XposedHelpers.findClass("com.tencent.mm.j.f", lpparam.classLoader);
         Class MessengerSyncPara1Class = XposedHelpers.findClass(HookParams.getInstance().MessengerSyncMethodParam1ClassName, lpparam.classLoader);
         Class MessengerSyncPara2Class = XposedHelpers.findClass(HookParams.getInstance().MessengerSyncMethodParam2ClassName, lpparam.classLoader);
@@ -192,9 +284,6 @@ public class SyncGroupMessage implements IPlugin {
             @Override
             protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
                 try {
-                    if (!PreferencesUtils.isAntiRevoke()) {
-                        return;
-                    }
 
                     Object bi = param.args[0];
                     int czq = XposedHelpers.getIntField(bi, "czq");
@@ -219,7 +308,7 @@ public class SyncGroupMessage implements IPlugin {
                     String field_transBrandWording = (String) XposedHelpers.getObjectField(bi, "field_transBrandWording");
                     String field_transContent = (String) XposedHelpers.getObjectField(bi, "field_transContent");
                     int field_type = XposedHelpers.getIntField(bi, "field_type");
-                    XposedBridge.log("yyyyyyyyyyyyy:czq=" + czq +
+                    XposedBridge.log("Get contact detail:czq=" + czq +
                             ",czr=" + czr +
                             ",field_bizChatId=" + field_bizChatId +
                             ",field_bizChatUserId=" + field_bizChatUserId +
@@ -245,51 +334,31 @@ public class SyncGroupMessage implements IPlugin {
 
                     String wxID = field_talker;
                     if (field_talker.contains("@chatroom")) {
+                        //Try(field_talker);
                         wxID = field_content.substring(0, field_content.indexOf(':'));
-                        XposedBridge.log("Get wxID:" + wxID);
+                        field_content = field_content.substring(field_content.indexOf(':')+2, field_content.length());
                         String displayName = (String) XposedHelpers.callStaticMethod(GetGroupListMethodClass, "P", wxID, field_talker);
                         Object aj = XposedHelpers.callStaticMethod(GetContactRecordMethodClass, "Fw");
-                        XposedBridge.log("Object is:" + aj);
 
                         Object ad = XposedHelpers.callMethod(aj, "abl", wxID);
-                        XposedBridge.log("ad is:" + ad);
 
                         String field_username = (String) XposedHelpers.getObjectField(ad, "field_username");
-                        XposedBridge.log("Get field_username:" + field_username);
 
                         String field_nickname = (String) XposedHelpers.getObjectField(ad, "field_nickname");
-                        XposedBridge.log("Get field_nickname:" + field_nickname);
 
                         String field_alias = (String) XposedHelpers.getObjectField(ad, "field_alias");
-                        XposedBridge.log("Get field_alias:" + field_alias);
-
                         String field_city = (String) XposedHelpers.getObjectField(ad, "cCB");
-                        XposedBridge.log("Get field_city:" + field_city);
 
                         String field_province = (String) XposedHelpers.getObjectField(ad, "cCA");
-                        XposedBridge.log("Get field_province:" + field_province);
-
                         String signature = (String) XposedHelpers.getObjectField(ad, "signature");
-                        XposedBridge.log("Get signature:" + signature);
-
                         String regionCode = (String) XposedHelpers.getObjectField(ad, "cCG");
-                        XposedBridge.log("Get regionCode:" + regionCode);
-
                         int sex = XposedHelpers.getIntField(ad, "sex");
-                        XposedBridge.log("Get sex:" + sex);
-
                         Object iObj = XposedHelpers.callStaticMethod(GetHeadIconMethodClass, HookParams.getInstance().ContactIconMethod);
-                        XposedBridge.log("Get object i:" + iObj);
                         Object iconObj = XposedHelpers.callMethod(iObj, "kp", wxID);
-                        XposedBridge.log("Get object icon:" + iconObj);
                         String iconBigUrlObj = (String) XposedHelpers.callMethod(iconObj, "JX");
-                        XposedBridge.log("iconBigUrlObj:" + iconBigUrlObj);
                         String finalUrl = (String) XposedHelpers.callStaticMethod(platformBK, "ZP", iconBigUrlObj);
-                        XposedBridge.log("finalBigUrl:" + finalUrl);
                         String iconSmallUrlObj = (String) XposedHelpers.callMethod(iconObj, "JY");
-                        XposedBridge.log("iconSmallUrlObj:" + iconSmallUrlObj);
                         String finalSmallUrl = (String) XposedHelpers.callStaticMethod(platformBK, "ZP", iconSmallUrlObj);
-                        XposedBridge.log("finalSmallUrl:" + finalSmallUrl);
 
                         msgCacheInfo info = new msgCacheInfo();
                         info.from_nickname = field_nickname;
@@ -299,22 +368,48 @@ public class SyncGroupMessage implements IPlugin {
                         info.avatar = finalSmallUrl;
                         info.city = field_city;
                         info.Country = "CN";
-                        info.from_aliname = field_alias;
+                        info.from_aliname = displayName;
                         info.groupId = field_talker;
                         info.hdAvatar = finalUrl;
                         info.msgType = field_type;
                         info.sendTime = field_createTime;
                         info.sex = sex;
                         info.text = field_content;
+                        info.province = field_province;
+                        info.signature = signature;
+                        info.displayRegion = regionCode;
 
+                        /*
+                        //h/c/am.java
+                        Object ff = XposedHelpers.callStaticMethod(TryGetChartroomClass, "FF");
+                        XposedBridge.log("FF:" + ff);
+                        Object roomNick = XposedHelpers.callMethod(ff, "in", field_talker);
+                        XposedBridge.log("roomNick:" + roomNick);
+                        Object nickObj = XposedHelpers.getObjectField(roomNick, "field_chatroomnick");
+                        if (nickObj != null) {
+                            XposedBridge.log("Get NickName" + (String)nickObj);
+                        }
+                        Object displayObj = XposedHelpers.getObjectField(roomNick, "field_displayname");
+                        if (nickObj != null) {
+                            XposedBridge.log("Get DisplayName:" + (String)displayObj);
+                        }
+                        Object chatroomObj = XposedHelpers.getObjectField(roomNick, "field_chatroomname");
+                        if (nickObj != null) {
+                            XposedBridge.log("Get chatroomObj:" + (String)chatroomObj);
+                        }
+                        Object selfDisplayObj = XposedHelpers.getObjectField(roomNick, "field_selfDisplayName");
+                        if (nickObj != null) {
+                            XposedBridge.log("Get selfDisplayObj:" + (String)chatroomObj);
+                        }*/
                         XposedBridge.log("ready wechat info:" + info.toString());
 
+                        /*
                         String urf8fmt = URLEncoder.encode(info.from_nickname, "UTF-8");
                         String origfmt = URLDecoder.decode(urf8fmt, "UTF-8");
-                        XposedBridge.log("Nickname:" + origfmt);
+                        XposedBridge.log("Nickname:" + origfmt);*/
 
                         if (field_type == 3) {
-                            msgCacheMap.add(info);
+
                             int startIndex = field_content.indexOf("aeskey");
                             int endIndex = field_content.indexOf("/>");
                             String payload = field_content.substring(startIndex, endIndex);
@@ -334,23 +429,38 @@ public class SyncGroupMessage implements IPlugin {
                             XposedHelpers.setObjectField(obj, "field_fullpath", imgSavePath);
                             XposedHelpers.setIntField(obj, "field_fileType", 1);
 
+                            String img = "downimg";
                             if (splitmap.containsKey("hdlength")) {
                                 XposedHelpers.setIntField(obj, "field_totalLen", Integer.parseInt(splitmap.get("hdlength")));
                                 XposedHelpers.setObjectField(obj, "field_fileId", splitmap.get("cdnbigimgurl"));
+                                XposedHelpers.setObjectField(obj, "field_aesKey", splitmap.get("aeskey"));
+                                info.filePath = imgSavePath;
+                                info.hdFlag = 1;
                             } else {
+
+                                img = "downimgthumb";
                                 XposedHelpers.setIntField(obj, "field_totalLen", Integer.parseInt(splitmap.get("length")));
                                 XposedHelpers.setObjectField(obj, "field_fileId", splitmap.get("cdnmidimgurl"));
+
+                                XposedHelpers.setObjectField(obj, "field_aesKey", splitmap.get("aeskey"));
+
+                                info.hdFlag = 0;
+                                msgCacheMap.put(field_msgId, info);
+                                XposedBridge.log("Cannot find hd image, use mid image id=" + field_msgId);
+                                //return;
                             }
 
-                            XposedHelpers.setObjectField(obj, "field_aesKey", splitmap.get("aeskey"));
 
-                            String mediaId = (String) XposedHelpers.callStaticMethod(getMediaID, "a", "downimg", field_createTime, field_talker, String.valueOf(field_msgId));
+
+                            String mediaId = (String) XposedHelpers.callStaticMethod(getMediaID, "a", img, field_createTime, field_talker, String.valueOf(field_msgId));
                             XposedHelpers.setObjectField(obj, "field_mediaId", mediaId);
                             Object downloadObj = XposedHelpers.callStaticMethod(getDownLoaderClass, "Nd");
                             boolean ret = (boolean) XposedHelpers.callMethod(downloadObj, "b", obj, -1);
                             if (!ret) {
                                 XposedBridge.log("call download error");
+                                return;
                             }
+                            msgCacheMap.put(field_msgId, info);
                             XposedBridge.log("download file finished");
                         } else {
                             httpRequest(info);
@@ -361,6 +471,92 @@ public class SyncGroupMessage implements IPlugin {
                     XposedBridge.log("KKK:Exception:" + e.getStackTrace());
                 }
             }
+
+
+            void Try(String field_talker) {
+                //test 尝试获取陌生人信息
+                List<String> members = (List<String>)XposedHelpers.callStaticMethod(GetGroupListMethodClass, "gK", field_talker);
+                for(int i=0;i<members.size();i++) {
+                    Object aj = XposedHelpers.callStaticMethod(GetContactRecordMethodClass, "Fw");
+                    Object ad = XposedHelpers.callMethod(aj, "abl", members.get(i));
+                    String field_username = (String) XposedHelpers.getObjectField(ad, "field_username");
+                    String field_nickname = (String) XposedHelpers.getObjectField(ad, "field_nickname");
+                    String field_alias = (String) XposedHelpers.getObjectField(ad, "field_alias");
+                    String field_city = (String) XposedHelpers.getObjectField(ad, "cCB");
+                    String field_province = (String) XposedHelpers.getObjectField(ad, "cCA");
+                    String signature = (String) XposedHelpers.getObjectField(ad, "signature");
+                    String regionCode = (String) XposedHelpers.getObjectField(ad, "cCG");
+                    int sex = XposedHelpers.getIntField(ad, "sex");
+                    XposedBridge.log("===================try test info:" + field_username + field_city+field_province+field_nickname+field_alias+signature+regionCode+sex);
+                    try {
+                        Object obj = XposedHelpers.newInstance(sended, members.get(i), 1);
+                        Object auobj = XposedHelpers.callStaticMethod(auclass, "Dk");
+                        XposedHelpers.callMethod(auobj, "a", obj, 0);
+
+                        Object amaobj = XposedHelpers.getStaticObjectField(ama, "dVy");
+                        XposedHelpers.callMethod(amaobj, "V", members.get(i), "");
+                        //Thread.sleep(1000);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                //test
+            }
         });
+
+
+        XposedHelpers.findAndHookMethod(HookParams.getInstance().SQLiteDatabaseClassName, lpparam.classLoader, HookParams.getInstance().SQLiteDatabaseUpdateMethod, String.class, ContentValues.class, String.class, String[].class, int.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+                try {
+                    String tableName = (String)param.args[0];
+                    if (tableName.equals("WxFileIndex2")) {
+                        XposedBridge.log("====== table update:" + tableName);
+                        ContentValues contentValues = ((ContentValues) param.args[1]);
+                        XposedBridge.log("======= content:" + contentValues.toString());
+                        if (contentValues.getAsInteger("msgType") == 3 &&
+                                contentValues.getAsInteger("msgSubType") == 20) {
+                                Long msgID = contentValues.getAsLong("msgId");
+                                msgCacheInfo info = msgCacheMap.get(msgID);
+                                if (info.hdFlag == 0) {
+                                    info.filePath = rootPath + "/tencent/MicroMsg/" + contentValues.getAsString("path");
+                                    XposedBridge.log("Use midimage path:" + info.filePath);
+                                }
+                        }
+                    }
+                } catch (Error | Exception e) {
+                    XposedBridge.log("BBBException:"+e.toString());
+                }
+            }
+        });
+
+        /*
+        XposedHelpers.findAndHookMethod(HookParams.getInstance().SQLiteDatabaseClassName, lpparam.classLoader, HookParams.getInstance().SQLiteDatabaseInsertMethod, String.class, String.class, ContentValues.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
+                try {
+                    String tableName = (String) param.args[0];
+
+                    XposedBridge.log("---------------- insert table name :" + tableName + "--------------------");
+
+                    if (tableName.equals("WxFileIndex2")) {
+                        ContentValues contentValues = ((ContentValues) param.args[2]);
+                        XposedBridge.log("======= content:" + contentValues.toString());
+                        if (contentValues.getAsInteger("msgType") == 3 &&
+                                contentValues.getAsInteger("msgSubType") == 20) {
+                            Long msgID = contentValues.getAsLong("msgId");
+                            msgCacheInfo info = msgCacheMap.get(msgID);
+                            if (info.hdFlag == 0) {
+                                info.filePath = rootPath + "/tencent/MicroMsg/" + contentValues.getAsString("path");
+                                XposedBridge.log("Use midimage path:" + info.filePath);
+                            }
+                        }
+                    }
+
+                } catch (Error | Exception e) {
+                    XposedBridge.log("Insert table callbackError:" + e.toString());
+                }
+            }
+        });*/
     }
 }
