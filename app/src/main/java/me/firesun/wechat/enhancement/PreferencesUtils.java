@@ -81,6 +81,10 @@ public class PreferencesUtils {
         return getInstance().getBoolean("is_break_limit", false);
     }
 
+    public static String getSrvAddress() {
+        return getInstance().getString("srv_address", "127.0.0.1:8080");
+    }
+
 }
 
 

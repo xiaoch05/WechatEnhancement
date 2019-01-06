@@ -41,6 +41,7 @@ import java.io.BufferedReader;
 
 
 public class SyncGroupMessage implements IPlugin {
+
     Class GetContactRecordMethodClass;
     public class msgCacheInfo {
         Long msgId;
@@ -113,7 +114,7 @@ public class SyncGroupMessage implements IPlugin {
                                     info.img = fileHash;
                                     httpRequest(info);
                                 }
-                                file.delete();
+                                //file.delete();
                             }
                         } else {
                             msgCacheMap.remove(key);
@@ -123,25 +124,30 @@ public class SyncGroupMessage implements IPlugin {
                             info.timeescape++;
                             continue;
                         } else {
-                            Object aj = XposedHelpers.callStaticMethod(GetContactRecordMethodClass, "Fw");
-                            Object ad = XposedHelpers.callMethod(aj, "abl", info.from_wxid);
-                            String field_nickname = (String) XposedHelpers.getObjectField(ad, "field_nickname");
-                            String field_city = (String) XposedHelpers.getObjectField(ad, "cCB");
-                            String field_province = (String) XposedHelpers.getObjectField(ad, "cCA");
-                            String signature = (String) XposedHelpers.getObjectField(ad, "signature");
-                            String regionCode = (String) XposedHelpers.getObjectField(ad, "cCG");
-                            int sex = XposedHelpers.getIntField(ad, "sex");
+                            try {
+                                Object aj = XposedHelpers.callStaticMethod(GetContactRecordMethodClass, "Fw");
+                                Object ad = XposedHelpers.callMethod(aj, "abl", info.from_wxid);
+                                String field_nickname = (String) XposedHelpers.getObjectField(ad, "field_nickname");
+                                String field_city = (String) XposedHelpers.getObjectField(ad, "cCB");
+                                String field_province = (String) XposedHelpers.getObjectField(ad, "cCA");
+                                String signature = (String) XposedHelpers.getObjectField(ad, "signature");
+                                String regionCode = (String) XposedHelpers.getObjectField(ad, "cCG");
+                                int sex = XposedHelpers.getIntField(ad, "sex");
 
-                            info.from_nickname = field_nickname;
-                            info.timeescape = 0;
-                            info.city = field_city;
-                            info.Country = "CN";
-                            info.sex = sex;
-                            info.province = field_province;
-                            info.signature = signature;
-                            info.displayRegion = regionCode;
-                            XposedBridge.log("in timer ready wechat info:" + info.toString());
-                            httpRequest(info);
+                                info.from_nickname = field_nickname;
+                                info.timeescape = 0;
+                                info.city = field_city;
+                                info.Country = "CN";
+                                info.sex = sex;
+                                info.province = field_province;
+                                info.signature = signature;
+                                info.displayRegion = regionCode;
+                                XposedBridge.log("in timer ready wechat info:" + info.toString());
+                                httpRequest(info);
+                            } catch (Exception e) {
+                                XposedBridge.log("Process normal message first time exception:" + e.toString());
+                            }
+                            msgCacheMap.remove(key);
                         }
                     }
                 }
@@ -157,7 +163,9 @@ public class SyncGroupMessage implements IPlugin {
 
     void httpRequest(msgCacheInfo info) {
         try {
-            URL url = new URL("http://192.168.1.90:8080/wechat/msg/api/v1/send"); //in the real code, there is an ip and a port
+            String srvAddr = PreferencesUtils.getSrvAddress();
+            URL url = new URL("http://" + srvAddr + "/wechat/msg/api/v1/send"); //in the real code, there is an ip and a port
+            XposedBridge.log("HTTP url:" + url);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
@@ -224,8 +232,10 @@ public class SyncGroupMessage implements IPlugin {
         String twoHyphens = "--";
         String boundary = "----";
         String uploadFile = fileName;
-        String actionUrl = "http://192.168.1.90:8080/wechat/msg/api/v1/upload";
         try {
+            String srvAddr = PreferencesUtils.getSrvAddress();
+            String actionUrl = "http://" + srvAddr + "/wechat/msg/api/v1/upload";
+            XposedBridge.log("HTTP url:" + actionUrl);
             URL url = new URL(actionUrl);
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             /* 允许Input、Output，不使用Cache */
