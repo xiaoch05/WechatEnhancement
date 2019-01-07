@@ -9,6 +9,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
@@ -94,9 +95,11 @@ public class SyncGroupMessage implements IPlugin {
             //XposedBridge.log("This is timer");
             try {
                 Set<Map.Entry<Long, msgCacheInfo>> entries = msgCacheMap.entrySet();
-                for(Map.Entry<Long, msgCacheInfo> entry : entries){
-                    msgCacheInfo info = entry.getValue();
-                    Long key = entry.getKey();
+                //for(Map.Entry<Long, msgCacheInfo> entry : entries){
+                for (Iterator<Map.Entry<Long, msgCacheInfo>> it = entries.iterator(); it.hasNext();){
+                    Map.Entry<Long, msgCacheInfo> item = it.next();
+                    msgCacheInfo info = item.getValue();
+                    Long key = item.getKey();
 
                     if (info.msgType == 3) {
                         if (info.timeescape < 5) {
@@ -108,7 +111,8 @@ public class SyncGroupMessage implements IPlugin {
                             File file = new File(info.filePath);
                             if (file.exists()) {
                                 XposedBridge.log("file has been download finished:" + info.filePath);
-                                msgCacheMap.remove(key);
+                                //msgCacheMap.remove(key);
+                                it.remove();
                                 String fileHash = uploadFile("Android" + info.msgId + ".jpg", info.filePath);
                                 if (fileHash != null) {
                                     info.img = fileHash;
@@ -117,7 +121,8 @@ public class SyncGroupMessage implements IPlugin {
                                 //file.delete();
                             }
                         } else {
-                            msgCacheMap.remove(key);
+                            //msgCacheMap.remove(key);
+                            it.remove();
                         }
                     } else if (info.msgType == 1) {
                         if (info.timeescape < 3) {
@@ -142,12 +147,14 @@ public class SyncGroupMessage implements IPlugin {
                                 info.province = field_province;
                                 info.signature = signature;
                                 info.displayRegion = regionCode;
-                                XposedBridge.log("in timer ready wechat info:" + info.toString());
+                                //XposedBridge.log("in timer ready wechat info:" + info.toString());
+                                XposedBridge.log("in timer ready wechat");
                                 httpRequest(info);
                             } catch (Exception e) {
                                 XposedBridge.log("Process normal message first time exception:" + e.toString());
                             }
-                            msgCacheMap.remove(key);
+                            //msgCacheMap.remove(key);
+                            it.remove();
                         }
                     }
                 }
@@ -329,28 +336,32 @@ public class SyncGroupMessage implements IPlugin {
                 try {
 
                     Object bi = param.args[0];
+
+                    String field_content = (String) XposedHelpers.getObjectField(bi, "field_content");
+                    long field_createTime = XposedHelpers.getLongField(bi, "field_createTime");
+                    long field_msgId = XposedHelpers.getLongField(bi, "field_msgId");
+                    String field_talker = (String) XposedHelpers.getObjectField(bi, "field_talker");
+                    int field_type = XposedHelpers.getIntField(bi, "field_type");
+
+                    /*
                     int czq = XposedHelpers.getIntField(bi, "czq");
                     String czr = (String) XposedHelpers.getObjectField(bi, "czr");
                     long field_bizChatId = XposedHelpers.getLongField(bi, "field_bizChatId");
                     String field_bizChatUserId = (String) XposedHelpers.getObjectField(bi, "field_bizChatUserId");
                     String field_bizClientMsgId = (String) XposedHelpers.getObjectField(bi, "field_bizClientMsgId");
-                    String field_content = (String) XposedHelpers.getObjectField(bi, "field_content");
-                    long field_createTime = XposedHelpers.getLongField(bi, "field_createTime");
                     int field_flag = XposedHelpers.getIntField(bi, "field_flag");
                     String field_imgPath = (String) XposedHelpers.getObjectField(bi, "field_imgPath");
                     int field_isSend = XposedHelpers.getIntField(bi, "field_isSend");
                     int field_isShowTimer = XposedHelpers.getIntField(bi, "field_isShowTimer");
                     byte[] field_lvbuffer = (byte[]) XposedHelpers.getObjectField(bi, "field_lvbuffer");
-                    long field_msgId = XposedHelpers.getLongField(bi, "field_msgId");
                     long field_msgSeq = XposedHelpers.getLongField(bi, "field_msgSeq");
                     long field_msgSvrId = XposedHelpers.getLongField(bi, "field_msgSvrId");
                     String field_reserved = (String) XposedHelpers.getObjectField(bi, "field_reserved");
                     int field_status = XposedHelpers.getIntField(bi, "field_status");
-                    String field_talker = (String) XposedHelpers.getObjectField(bi, "field_talker");
                     int field_talkerId = XposedHelpers.getIntField(bi, "field_talkerId");
                     String field_transBrandWording = (String) XposedHelpers.getObjectField(bi, "field_transBrandWording");
                     String field_transContent = (String) XposedHelpers.getObjectField(bi, "field_transContent");
-                    int field_type = XposedHelpers.getIntField(bi, "field_type");
+                    */
                     /*
                     XposedBridge.log("Get contact detail:czq=" + czq +
                             ",czr=" + czr +
@@ -481,17 +492,10 @@ public class SyncGroupMessage implements IPlugin {
                                 info.filePath = imgSavePath;
                                 info.hdFlag = 1;
                             } else {
-
-                                img = "downimgthumb";
-                                XposedHelpers.setIntField(obj, "field_totalLen", Integer.parseInt(splitmap.get("length")));
-                                XposedHelpers.setObjectField(obj, "field_fileId", splitmap.get("cdnmidimgurl"));
-
-                                XposedHelpers.setObjectField(obj, "field_aesKey", splitmap.get("aeskey"));
-
                                 info.hdFlag = 0;
                                 msgCacheMap.put(field_msgId, info);
                                 XposedBridge.log("Cannot find hd image, use mid image id=" + field_msgId);
-                                //return;
+                                return;
                             }
                             String mediaId = (String) XposedHelpers.callStaticMethod(getMediaID, "a", img, field_createTime, field_talker, String.valueOf(field_msgId));
                             XposedHelpers.setObjectField(obj, "field_mediaId", mediaId);
@@ -571,7 +575,7 @@ public class SyncGroupMessage implements IPlugin {
                                 contentValues.getAsInteger("msgSubType") == 20) {
                                 Long msgID = contentValues.getAsLong("msgId");
                                 msgCacheInfo info = msgCacheMap.get(msgID);
-                                if (info.hdFlag == 0) {
+                                if (info != null && info.hdFlag == 0) {
                                     info.filePath = rootPath + "/tencent/MicroMsg/" + contentValues.getAsString("path");
                                     XposedBridge.log("Use midimage path:" + info.filePath);
                                 }
