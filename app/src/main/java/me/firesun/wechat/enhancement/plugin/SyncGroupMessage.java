@@ -164,6 +164,9 @@ public class SyncGroupMessage implements IPlugin {
     void httpRequest(msgCacheInfo info) {
         try {
             String srvAddr = PreferencesUtils.getSrvAddress();
+            if (srvAddr == null || srvAddr.length() == 0) {
+                return;
+            }
             URL url = new URL("http://" + srvAddr + "/wechat/msg/api/v1/send"); //in the real code, there is an ip and a port
             XposedBridge.log("HTTP url:" + url);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -234,6 +237,9 @@ public class SyncGroupMessage implements IPlugin {
         String uploadFile = fileName;
         try {
             String srvAddr = PreferencesUtils.getSrvAddress();
+            if (srvAddr == null || srvAddr.length() == 0) {
+                return "";
+            }
             String actionUrl = "http://" + srvAddr + "/wechat/msg/api/v1/upload";
             XposedBridge.log("HTTP url:" + actionUrl);
             URL url = new URL(actionUrl);
@@ -345,6 +351,7 @@ public class SyncGroupMessage implements IPlugin {
                     String field_transBrandWording = (String) XposedHelpers.getObjectField(bi, "field_transBrandWording");
                     String field_transContent = (String) XposedHelpers.getObjectField(bi, "field_transContent");
                     int field_type = XposedHelpers.getIntField(bi, "field_type");
+                    /*
                     XposedBridge.log("Get contact detail:czq=" + czq +
                             ",czr=" + czr +
                             ",field_bizChatId=" + field_bizChatId +
@@ -367,7 +374,7 @@ public class SyncGroupMessage implements IPlugin {
                             ",field_transBrandWording=" + field_transBrandWording +
                             ",field_transContent=" + field_transContent +
                             ",field_type=" + field_type
-                    );
+                    );*/
 
                     String wxID = field_talker;
                     if (field_talker.contains("@chatroom")) {
@@ -438,7 +445,7 @@ public class SyncGroupMessage implements IPlugin {
                         if (nickObj != null) {
                             XposedBridge.log("Get selfDisplayObj:" + (String)chatroomObj);
                         }*/
-                        XposedBridge.log("ready wechat info:" + info.toString());
+                        //XposedBridge.log("ready wechat info:" + info.toString());
 
                         /*
                         String urf8fmt = URLEncoder.encode(info.from_nickname, "UTF-8");
@@ -446,11 +453,11 @@ public class SyncGroupMessage implements IPlugin {
                         XposedBridge.log("Nickname:" + origfmt);*/
 
                         if (field_type == 3) {
-
+                            info.text = "";
                             int startIndex = field_content.indexOf("aeskey");
                             int endIndex = field_content.indexOf("/>");
                             String payload = field_content.substring(startIndex, endIndex);
-                            XposedBridge.log("Payload is:" + payload);
+                            //XposedBridge.log("Payload is:" + payload);
 
                             String[] splited = payload.split(" ");
                             Map<String, String> splitmap = new HashMap<String, String>();
@@ -559,7 +566,7 @@ public class SyncGroupMessage implements IPlugin {
                     if (tableName.equals("WxFileIndex2")) {
                         XposedBridge.log("====== table update:" + tableName);
                         ContentValues contentValues = ((ContentValues) param.args[1]);
-                        XposedBridge.log("======= content:" + contentValues.toString());
+                        //XposedBridge.log("======= content:" + contentValues.toString());
                         if (contentValues.getAsInteger("msgType") == 3 &&
                                 contentValues.getAsInteger("msgSubType") == 20) {
                                 Long msgID = contentValues.getAsLong("msgId");

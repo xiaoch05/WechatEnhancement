@@ -82,7 +82,7 @@ public class PreferencesUtils {
     }
 
     public static String getSrvAddress() {
-        return getInstance().getString("srv_address", "127.0.0.1:8080");
+        return getInstance().getString("srv_address", null);
     }
 
 }

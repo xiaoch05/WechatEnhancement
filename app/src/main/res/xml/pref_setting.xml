@@ -4,7 +4,6 @@
             android:dependency="open"
             android:hint="请输入服务器地址"
             android:key="srv_address"
-            android:defaultValue="127.0.0.1:9090"
             android:title="服务器地址"/>
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/luckmoney_setting">
