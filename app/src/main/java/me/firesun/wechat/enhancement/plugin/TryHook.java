@@ -71,5 +71,39 @@ public class TryHook implements IPlugin {
                 }
             }
         });
+
+        Class fClass = XposedHelpers.findClass("com.tencent.mm.j.f", lpparam.classLoader);
+        XposedHelpers.findAndHookMethod("com.tencent.mm.ak.b", lpparam.classLoader, "b", fClass, int.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
+                try {
+                    XposedBridge.log("========com.tencent.mm.ak.b========");
+
+                    Object msg = param.args[0];
+                    String field_fullpath = (String)XposedHelpers.getObjectField(msg, "field_fullpath");
+                    int field_fileType = XposedHelpers.getIntField(msg, "field_fileType");
+                    int field_totalLen = XposedHelpers.getIntField(msg, "field_totalLen");
+                    String field_fileId = (String)XposedHelpers.getObjectField(msg, "field_fileId");
+                    String field_aesKey = (String)XposedHelpers.getObjectField(msg, "field_aesKey");
+                    int field_chattype = XposedHelpers.getIntField(msg, "field_chattype");
+
+                    XposedBridge.log("content: field_fullpath=" + field_fullpath +
+                            ",field_fileType=" + field_fileType +
+                            ",field_totalLen=" + field_totalLen +
+                            ",field_fileId=" + field_fileId +
+                            ",field_aesKey="+field_aesKey+
+                            ",field_chattype" + field_chattype);
+
+                    /*
+                    for (String key: ((Bundle)param.args[0]).keySet())
+                    {
+                        String value = ((Bundle)param.args[0]).getString(key);
+                        XposedBridge.log("Bundle Content Key=" + key + ", content=" + value);
+                    }*/
+
+                } catch (Error | Exception e) {
+                }
+            }
+        });
     }
 }

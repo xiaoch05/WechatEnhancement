@@ -86,7 +86,7 @@ public class Main implements IXposedHookLoadPackage {
         plugins.add(new HideModule());
         //plugins.add(new LuckMoney());
         //plugins.add(new Limits());
-        //plugins.add(new TryHook());*/
+        //plugins.add(new TryHook());
         SyncGroupMessage syncPlugin = new SyncGroupMessage();
         syncPlugin.Init();
         plugins.add(syncPlugin);

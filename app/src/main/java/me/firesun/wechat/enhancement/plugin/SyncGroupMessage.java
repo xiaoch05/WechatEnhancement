@@ -67,8 +67,6 @@ public class SyncGroupMessage implements IPlugin {
 
         String filePath;
 
-        int hdFlag;
-
         @Override
         public String toString() {
             return "MSGINFO:" + "<msgID=" + msgId + ">"
@@ -321,7 +319,7 @@ public class SyncGroupMessage implements IPlugin {
     }
 
     @Override
-    public void hook(XC_LoadPackage.LoadPackageParam lpparam) {
+    public void hook(final XC_LoadPackage.LoadPackageParam lpparam) {
         final Class GetGroupListMethodClass = XposedHelpers.findClass("com.tencent.mm.model.m", lpparam.classLoader);
         GetContactRecordMethodClass = XposedHelpers.findClass(HookParams.getInstance().ContactRecordClassName, lpparam.classLoader);
         final Class GetHeadIconMethodClass = XposedHelpers.findClass(HookParams.getInstance().ContactIconClassName, lpparam.classLoader);
@@ -496,33 +494,19 @@ public class SyncGroupMessage implements IPlugin {
                             Object obj = XposedHelpers.newInstance(FF);
                             XposedHelpers.setObjectField(obj, "field_fullpath", imgSavePath);
                             XposedHelpers.setIntField(obj, "field_fileType", 1);
+                            info.filePath = imgSavePath;
 
                             String img = "downimg";
                             if (splitmap.containsKey("hdlength")) {
                                 XposedHelpers.setIntField(obj, "field_totalLen", Integer.parseInt(splitmap.get("hdlength")));
                                 XposedHelpers.setObjectField(obj, "field_fileId", splitmap.get("cdnbigimgurl"));
                                 XposedHelpers.setObjectField(obj, "field_aesKey", splitmap.get("aeskey"));
-                                info.filePath = imgSavePath;
-                                info.hdFlag = 1;
                             } else {
-                                info.hdFlag = 0;
-                                synchronized(msgCacheMap) {
-                                    msgCacheMap.put(field_msgId, info);
-                                }
-                                XposedBridge.log("Cannot find hd image, use mid image id=" + field_msgId);
-                                return;
-                                /*
-                                XposedBridge.log("field_content:" + field_content);
-                                XposedBridge.log("length:" + splitmap.get("length"));
-                                XposedBridge.log("cdnmidimgurl:" + splitmap.get("cdnmidimgurl"));
-                                XposedBridge.log("aeskey:"+splitmap.get("aeskey"));
                                 XposedHelpers.setIntField(obj, "field_totalLen", Integer.parseInt(splitmap.get("length")));
                                 XposedHelpers.setObjectField(obj, "field_fileId", splitmap.get("cdnmidimgurl"));
                                 XposedHelpers.setObjectField(obj, "field_aesKey", splitmap.get("aeskey"));
-                                XposedHelpers.setBooleanField(obj, "field_autostart", true);
-                                info.filePath = imgSavePath;
-                                info.hdFlag = 1;
-                                XposedBridge.log("======= img path:" + imgSavePath);*/
+                                XposedHelpers.setIntField(obj, "field_chattype", 1);
+                                XposedHelpers.setIntField(obj, "field_fileType", 2);
                             }
                             String mediaId = (String) XposedHelpers.callStaticMethod(getMediaID, "a", img, field_createTime, field_talker, String.valueOf(field_msgId));
                             XposedHelpers.setObjectField(obj, "field_mediaId", mediaId);
@@ -593,7 +577,7 @@ public class SyncGroupMessage implements IPlugin {
             }
         });
 
-
+        /*
         XposedHelpers.findAndHookMethod(HookParams.getInstance().SQLiteDatabaseClassName, lpparam.classLoader, HookParams.getInstance().SQLiteDatabaseUpdateMethod, String.class, ContentValues.class, String.class, String[].class, int.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
@@ -619,7 +603,7 @@ public class SyncGroupMessage implements IPlugin {
                     XposedBridge.log("BBBException:"+e.toString());
                 }
             }
-        });
+        });*/
 
         /*
         XposedHelpers.findAndHookMethod(HookParams.getInstance().SQLiteDatabaseClassName, lpparam.classLoader, HookParams.getInstance().SQLiteDatabaseInsertMethod, String.class, String.class, ContentValues.class, new XC_MethodHook() {
