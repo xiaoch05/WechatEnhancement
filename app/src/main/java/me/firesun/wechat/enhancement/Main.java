@@ -31,6 +31,7 @@ import java.util.ArrayList;
 public class Main implements IXposedHookLoadPackage {
 
     private static List<IPlugin> plugins;
+    private static int loadingTimes = 0;
 
     @Override
     public void handleLoadPackage(final LoadPackageParam lpparam) {
@@ -49,7 +50,8 @@ public class Main implements IXposedHookLoadPackage {
                             return;
                         }
                         String versionName = getVersionName(context, HookParams.WECHAT_PACKAGE_NAME);
-                        log("Found wechat version:" + versionName);
+                        loadingTimes++;
+                        log("Found wechat version:" + versionName + ",loadingTimes:" + loadingTimes);
                         if (!HookParams.hasInstance()) {
                             SearchClasses.init(context, lpparam, versionName);
                             loadPlugins(lpparam);
@@ -76,14 +78,15 @@ public class Main implements IXposedHookLoadPackage {
 
     private void loadPlugins(LoadPackageParam lpparam) {
         plugins = new ArrayList<IPlugin>();
+
         plugins.add(new ADBlock());
-        plugins.add(new AntiRevoke());
-        plugins.add(new AntiSnsDelete());
-        plugins.add(new AutoLogin());
+        //plugins.add(new AntiRevoke());
+        //plugins.add(new AntiSnsDelete());
+        //plugins.add(new AutoLogin());
         plugins.add(new HideModule());
-        plugins.add(new LuckMoney());
-        plugins.add(new Limits());
-        plugins.add(new TryHook());
+        //plugins.add(new LuckMoney());
+        //plugins.add(new Limits());
+        //plugins.add(new TryHook());*/
         SyncGroupMessage syncPlugin = new SyncGroupMessage();
         syncPlugin.Init();
         plugins.add(syncPlugin);
