@@ -1,15 +1,7 @@
 package me.firesun.wechat.enhancement.plugin;
 
-import android.content.ContentValues;
-
-
-import org.bouncycastle.jce.provider.X509StoreLDAPCertPairs;
-
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
@@ -22,21 +14,14 @@ import me.firesun.wechat.enhancement.PreferencesUtils;
 import me.firesun.wechat.enhancement.util.HookParams;
 
 import android.os.Environment;
-import android.text.TextUtils;
-
-import org.xml.sax.XMLReader;
-
 import java.util.Timer;
 import java.util.TimerTask;
 import org.json.JSONObject;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.io.FileInputStream;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 
 import java.io.BufferedReader;
 
@@ -188,7 +173,7 @@ public class SyncGroupMessage implements IPlugin {
             XposedBridge.log("HTTP url:" + url);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             conn.setRequestProperty("Accept","application/json");
             conn.setDoOutput(true);
             conn.setDoInput(true);
@@ -198,24 +183,26 @@ public class SyncGroupMessage implements IPlugin {
             JSONObject data = new JSONObject();
             JSONObject group = new JSONObject();
             group.put("id", info.groupId);
-            group.put("nickname", info.groupNickName != null ? URLEncoder.encode(info.groupNickName, "UTF-8") : "");
+            group.put("nickname", info.groupNickName != null ? info.groupNickName : "");
             JSONObject member = new JSONObject();
             member.put("wxid", info.from_wxid);
-            member.put("nickname", info.from_nickname != null ? URLEncoder.encode(info.from_nickname, "UTF-8") : "");
-            member.put("groupAliasName", info.from_aliname != null ? URLEncoder.encode(info.from_aliname, "UTF-8") : "");
+            member.put("nickname", info.from_nickname != null ? info.from_nickname : "");
+            member.put("groupAliasName", info.from_aliname != null ? info.from_aliname : "");
             member.put("avatar", info.avatar);
             member.put("hdAvatar", info.hdAvatar);
             member.put("sex", info.sex);
-            member.put("province", info.province != null ? URLEncoder.encode(info.province, "UTF-8") : "");
-            member.put("city", info.city != null ? URLEncoder.encode(info.city, "UTF-8") : "");
-            member.put("country", info.Country != null ? URLEncoder.encode(info.Country, "UTF-8") : "");
-            member.put("signature", info.signature != null ? URLEncoder.encode(info.signature, "UTF-8") : "");
+
+            member.put("province", info.province != null ? info.province : "");
+            member.put("city", info.city != null ? info.city : "");
+            member.put("country", info.Country != null ? info.Country : "");
+            member.put("signature", info.signature != null ? info.signature : "");
             member.put("displayRegion", info.displayRegion);
+
             JSONObject msg = new JSONObject();
             msg.put("id", info.msgId);
             msg.put("type", info.msgType);
             msg.put("img", info.img);
-            msg.put("text", info.text !=null ? URLEncoder.encode(info.text, "UTF-8") : "");
+            msg.put("text", info.text !=null ? info.text : "");
             msg.put("sendTime", info.sendTime);
             data.put("group", group);
             data.put("member", member);
@@ -223,7 +210,8 @@ public class SyncGroupMessage implements IPlugin {
             data.put("resource", 2);
             DataOutputStream os = new DataOutputStream(conn.getOutputStream());
             //os.writeBytes(URLEncoder.encode(data.toString(), "UTF-8"));
-            os.writeBytes(data.toString());
+            //os.writeBytes(data.toString());
+            os.write(data.toString().getBytes());
 
             os.flush();
             os.close();
@@ -444,35 +432,6 @@ public class SyncGroupMessage implements IPlugin {
                         info.province = field_province;
                         info.signature = signature;
                         info.displayRegion = regionCode;
-
-                        /*
-                        //h/c/am.java
-                        Object ff = XposedHelpers.callStaticMethod(TryGetChartroomClass, "FF");
-                        XposedBridge.log("FF:" + ff);
-                        Object roomNick = XposedHelpers.callMethod(ff, "in", field_talker);
-                        XposedBridge.log("roomNick:" + roomNick);
-                        Object nickObj = XposedHelpers.getObjectField(roomNick, "field_chatroomnick");
-                        if (nickObj != null) {
-                            XposedBridge.log("Get NickName" + (String)nickObj);
-                        }
-                        Object displayObj = XposedHelpers.getObjectField(roomNick, "field_displayname");
-                        if (nickObj != null) {
-                            XposedBridge.log("Get DisplayName:" + (String)displayObj);
-                        }
-                        Object chatroomObj = XposedHelpers.getObjectField(roomNick, "field_chatroomname");
-                        if (nickObj != null) {
-                            XposedBridge.log("Get chatroomObj:" + (String)chatroomObj);
-                        }
-                        Object selfDisplayObj = XposedHelpers.getObjectField(roomNick, "field_selfDisplayName");
-                        if (nickObj != null) {
-                            XposedBridge.log("Get selfDisplayObj:" + (String)chatroomObj);
-                        }*/
-                        //XposedBridge.log("ready wechat info:" + info.toString());
-
-                        /*
-                        String urf8fmt = URLEncoder.encode(info.from_nickname, "UTF-8");
-                        String origfmt = URLDecoder.decode(urf8fmt, "UTF-8");
-                        XposedBridge.log("Nickname:" + origfmt);*/
 
                         if (field_type == 3) {
                             info.text = "";
