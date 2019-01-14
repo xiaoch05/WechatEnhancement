@@ -25,10 +25,19 @@ import java.io.FileInputStream;
 
 import java.io.BufferedReader;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.io.FileOutputStream;
+
 
 public class SyncGroupMessage implements IPlugin {
 
     Class GetContactRecordMethodClass;
+
+    File logFile = null;
+    FileOutputStream outStream = null;
+    long logFileLength = 0;
+
     public class msgCacheInfo {
         Long msgId;
         int timeescape;
@@ -95,11 +104,11 @@ public class SyncGroupMessage implements IPlugin {
                                 continue;
                             } else if (info.timeescape < 30) {
                                 info.timeescape++;
-                                XposedBridge.log("I should find file, path=" + info.filePath);
+                                Log("I should find file, path=" + info.filePath);
                                 if (info.filePath != null) {
                                     File file = new File(info.filePath);
                                     if (file != null && file.exists()) {
-                                        XposedBridge.log("file has been download finished:" + info.filePath);
+                                        Log("file has been download finished:" + info.filePath);
                                         synchronized(msgCacheMap) {
                                             msgCacheMap.remove(key);
                                         }
@@ -112,7 +121,7 @@ public class SyncGroupMessage implements IPlugin {
                                     }
                                 }
                             } else {
-                                XposedBridge.log("cannot find image, dropped");
+                                Log("cannot find image, dropped");
                                 synchronized(msgCacheMap) {
                                     msgCacheMap.remove(key);
                                 }
@@ -142,9 +151,9 @@ public class SyncGroupMessage implements IPlugin {
                                     info.displayRegion = regionCode;
                                     //XposedBridge.log("in timer ready wechat info:" + info.toString());
                                     httpRequest(info);
-                                    XposedBridge.log("success send wechat info in timer");
+                                    Log("success send wechat info in timer");
                                 } catch (Exception e) {
-                                    XposedBridge.log("Process normal message first time exception:" + e.toString());
+                                    Log("Process normal message first time exception:" + e.toString());
                                 }
                                 synchronized(msgCacheMap) {
                                     msgCacheMap.remove(key);
@@ -153,7 +162,7 @@ public class SyncGroupMessage implements IPlugin {
                         }
                     }
                 } catch (Exception e) {
-                    XposedBridge.log("TimerException:" + e.toString());
+                    Log("TimerException:" + e.toString());
                 }
             }
         }
@@ -163,6 +172,33 @@ public class SyncGroupMessage implements IPlugin {
         timer.schedule(task, 1000, 1000);
     }
 
+    public void Log(String content) {
+        String currentTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss ").format(new Date());
+        String formatedContent = currentTime + content  + "\r\n";
+        logFileLength += formatedContent.length();
+
+        if (logFile == null || logFileLength >= 2 * 1024 * 1024) {
+            try {
+                String currentDateandTime = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss").format(new Date());
+                logFile = new File(rootPath + "/Android/data/de.robv.android.xposed.installer/files/" + "wechat_" + currentDateandTime + ".log");
+                if (outStream != null) {
+                    outStream.close();
+                }
+                outStream = new FileOutputStream(logFile);
+                logFileLength = 0;
+            } catch (Exception e) {
+                XposedBridge.log("Open logfile exception:" + e.toString());
+            }
+        }
+        try {
+            synchronized (logFile) {
+                outStream.write(formatedContent.getBytes());
+            }
+        } catch (Exception e) {
+            XposedBridge.log("Write logfile exception:" + e.toString());
+        }
+    }
+
     void httpRequest(msgCacheInfo info) {
         try {
             String srvAddr = PreferencesUtils.getSrvAddress();
@@ -170,7 +206,7 @@ public class SyncGroupMessage implements IPlugin {
                 return;
             }
             URL url = new URL("http://" + srvAddr + "/wechat/msg/api/v1/send"); //in the real code, there is an ip and a port
-            XposedBridge.log("HTTP url:" + url);
+            Log("HTTP url:" + url);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
@@ -224,14 +260,14 @@ public class SyncGroupMessage implements IPlugin {
                     stringBuilder.append(response + "\n");
                 }
                 bufferedReader.close();
-                XposedBridge.log("get response:" + stringBuilder.toString());
+                Log("get response:" + stringBuilder.toString());
             } else {
-                XposedBridge.log("Http Error:" + conn.getResponseMessage());
+                Log("Http Error:" + conn.getResponseMessage());
             }
 
             conn.disconnect();
         } catch (Exception e) {
-            XposedBridge.log("HttpException:" + e.toString());
+            Log("HttpException:" + e.toString());
         }
     }
 
@@ -246,7 +282,7 @@ public class SyncGroupMessage implements IPlugin {
                 return "";
             }
             String actionUrl = "http://" + srvAddr + "/wechat/msg/api/v1/upload";
-            XposedBridge.log("HTTP url:" + actionUrl);
+            Log("HTTP url:" + actionUrl);
             URL url = new URL(actionUrl);
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             /* 允许Input、Output，不使用Cache */
@@ -292,16 +328,16 @@ public class SyncGroupMessage implements IPlugin {
                     stringBuilder.append(response + "\n");
                 }
                 bufferedReader.close();
-                XposedBridge.log("Upload file get response:" + stringBuilder.toString());
+                Log("Upload file get response:" + stringBuilder.toString());
                 JSONObject msg = new JSONObject(stringBuilder.toString());
                 ds.close();
                 return (String)msg.get("data");
             } else {
-                XposedBridge.log("Upload file Http Error:" + con.getResponseMessage());
+                Log("Upload file Http Error:" + con.getResponseMessage());
             }
             ds.close();
         } catch (Exception e) {
-            XposedBridge.log("UploadFile exception:" + e.toString());
+            Log("UploadFile exception:" + e.toString());
         }
         return null;
     }
@@ -472,25 +508,25 @@ public class SyncGroupMessage implements IPlugin {
                             Object downloadObj = XposedHelpers.callStaticMethod(getDownLoaderClass, "Nd");
                             boolean ret = (boolean) XposedHelpers.callMethod(downloadObj, "b", obj, 1);
                             if (!ret) {
-                                XposedBridge.log("call download error");
+                                Log("call download error");
                                 return;
                             }
                             synchronized(msgCacheMap) {
                                 msgCacheMap.put(field_msgId, info);
                             }
-                            XposedBridge.log("start to download file:" + info.filePath);
+                            Log("start to download file:" + info.filePath);
                         } else if (info.city == null || info.city.length() == 0){
                             synchronized(msgCacheMap) {
                                 msgCacheMap.put(field_msgId, info);
                             }
                         } else {
                             httpRequest(info);
-                            XposedBridge.log("send wechat message directly");
+                            Log("send wechat message directly");
                         }
                     }
                 } catch (Error | Exception e) {
-                    XposedBridge.log("KKK:Exception:" + e.toString());
-                    XposedBridge.log("KKK:Exception:" + e.getStackTrace());
+                    Log("KKK:Exception:" + e.toString());
+                    Log("KKK:Exception:" + e.getStackTrace());
                 }
             }
 
