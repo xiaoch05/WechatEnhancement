@@ -454,6 +454,9 @@ public class SyncGroupMessage implements IPlugin {
                         String iconSmallUrlObj = (String) XposedHelpers.callMethod(iconObj, "JY");
                         String finalSmallUrl = (String) XposedHelpers.callStaticMethod(platformBK, "ZP", iconSmallUrlObj);
 
+                        Object chatroomObj = XposedHelpers.callMethod(aj, "abl", field_talker);
+                        String chatroom_field_nickname = (String) XposedHelpers.getObjectField(chatroomObj, "field_nickname");
+
                         msgCacheInfo info = new msgCacheInfo();
                         info.from_nickname = field_nickname;
                         info.from_wxid = wxID;
@@ -473,6 +476,7 @@ public class SyncGroupMessage implements IPlugin {
                         info.signature = signature;
                         info.displayRegion = regionCode;
                         info.selfId = PreferencesUtils.getSelfId();
+                        info.groupNickName = chatroom_field_nickname;
 
                         if (field_type == 3) {
                             info.text = "";
