@@ -86,6 +86,10 @@ public class PreferencesUtils {
 
     }
 
+    public static String getSelfId() {
+        return getInstance().getString("self_id", "Unknown");
+    }
+
 }
 
 

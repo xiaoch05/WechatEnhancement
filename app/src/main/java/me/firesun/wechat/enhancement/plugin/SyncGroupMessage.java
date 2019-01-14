@@ -14,6 +14,8 @@ import me.firesun.wechat.enhancement.PreferencesUtils;
 import me.firesun.wechat.enhancement.util.HookParams;
 
 import android.os.Environment;
+import android.preference.PreferenceCategory;
+
 import java.util.Timer;
 import java.util.TimerTask;
 import org.json.JSONObject;
@@ -60,10 +62,12 @@ public class SyncGroupMessage implements IPlugin {
         String img;
 
         String filePath;
+        String selfId;
 
         @Override
         public String toString() {
             return "MSGINFO:" + "<msgID=" + msgId + ">"
+                    + "<self=" + selfId + ">"
                     + "<wxid=" + from_wxid + ">"
                     + "<nickname=" + from_nickname + ">"
                     + "<aliname=" + from_aliname + ">"
@@ -73,7 +77,6 @@ public class SyncGroupMessage implements IPlugin {
                     + "<city=" + city + ">"
                     + "<signature=" + signature + ">"
                     + "<msgType=" + msgType + ">"
-                    + "<text=" + text + ">"
                     + "<city=" + city + ">"
                     + "<County=" + Country + ">"
                     + "<groupNickName=" + groupNickName + ">";
@@ -151,7 +154,7 @@ public class SyncGroupMessage implements IPlugin {
                                     info.displayRegion = regionCode;
                                     //XposedBridge.log("in timer ready wechat info:" + info.toString());
                                     httpRequest(info);
-                                    Log("success send wechat info in timer");
+                                    Log("success send wechat info in timer:" + info.toString());
                                 } catch (Exception e) {
                                     Log("Process normal message first time exception:" + e.toString());
                                 }
@@ -244,6 +247,7 @@ public class SyncGroupMessage implements IPlugin {
             data.put("member", member);
             data.put("msg", msg);
             data.put("resource", 2);
+            data.put("swxid", info.selfId);
             DataOutputStream os = new DataOutputStream(conn.getOutputStream());
             //os.writeBytes(URLEncoder.encode(data.toString(), "UTF-8"));
             //os.writeBytes(data.toString());
@@ -468,6 +472,7 @@ public class SyncGroupMessage implements IPlugin {
                         info.province = field_province;
                         info.signature = signature;
                         info.displayRegion = regionCode;
+                        info.selfId = PreferencesUtils.getSelfId();
 
                         if (field_type == 3) {
                             info.text = "";
@@ -521,7 +526,7 @@ public class SyncGroupMessage implements IPlugin {
                             }
                         } else {
                             httpRequest(info);
-                            Log("send wechat message directly");
+                            Log("send wechat message directly:" + info.toString());
                         }
                     }
                 } catch (Error | Exception e) {

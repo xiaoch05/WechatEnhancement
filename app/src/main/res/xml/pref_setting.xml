@@ -5,6 +5,11 @@
             android:hint="请输入服务器地址"
             android:key="srv_address"
             android:title="服务器地址"/>
+        <EditTextPreference
+            android:dependency="open"
+            android:hint="请输入接收ID"
+            android:key="self_id"
+            android:title="微信ID"/>
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/luckmoney_setting">
         <SwitchPreference
