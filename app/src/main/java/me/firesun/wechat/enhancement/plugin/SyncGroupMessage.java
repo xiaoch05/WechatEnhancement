@@ -79,6 +79,7 @@ public class SyncGroupMessage implements IPlugin {
                     + "<msgType=" + msgType + ">"
                     + "<city=" + city + ">"
                     + "<County=" + Country + ">"
+                    + "<groupId=" + groupId + ">"
                     + "<groupNickName=" + groupNickName + ">";
         }
     }
