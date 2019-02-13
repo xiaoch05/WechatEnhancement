@@ -81,6 +81,15 @@ public class PreferencesUtils {
         return getInstance().getBoolean("is_break_limit", false);
     }
 
+    public static String getSrvAddress() {
+        return getInstance().getString("srv_address", null);
+
+    }
+
+    public static String getSelfId() {
+        return getInstance().getString("self_id", "Unknown");
+    }
+
 }
 
 
